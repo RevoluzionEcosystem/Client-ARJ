@@ -859,23 +859,34 @@ contract ARJ is Ownable, IERC20Metadata, IERC20Errors, ICommonError {
     /* Redeem */
 
     /**
-     * @notice Initiates an automatic redemption process by distributing a specific
-     * amount of tokens for marketing purposes, swapping a portion for ETH. Limited
-     * to a maximum of 10% of circulating supply per transaction.
-     * 
+     * @notice Initiates a manual redemption process by distributing a specific
+     * amount of tokens for fee purposes, swapping a portion for ETH.
+     *
      * @param amountToRedeem The amount of tokens to be redeemed and distributed
-     * for marketing.
-     * 
-     * @dev This function calculates the distribution of tokens for marketing
-     * redeems the specified amount, and triggers a swap for ETH. This function 
-     * can be used for both auto and manual redeem of the specified amount.
+     * for fee.
+     *
+     * @dev This function calculates the distribution of tokens for fee redeems
+     * the specified amount, and triggers a swap for ETH. This function can only
+     * be used to manual redeem specified amount by the owner.
      */
-    function autoRedeem(uint256 amountToRedeem) public swapping {
+    function manualRedeem(uint256 amountToRedeem) external swapping onlyOwner {
+        autoRedeem(amountToRedeem);
+    }
+
+    /**
+     * @notice Initiates an automatic redemption process by distributing a specific
+     * amount of tokens for fee purposes, swapping a portion for ETH.
+     *
+     * @param amountToRedeem The amount of tokens to be redeemed and distributed
+     * for fee.
+     *
+     * @dev This function calculates the distribution of tokens for fee redeems
+     * the specified amount, and triggers a swap for ETH. This function can be
+     * used for both auto and manual redeem of the specified amount.
+     */
+    function autoRedeem(uint256 amountToRedeem) internal swapping {
         uint256 totalToRedeem = totalFeeCollected - totalFeeRedeemed;
         
-        if (amountToRedeem > circulatingSupply() * 500 / FEEDENOMINATOR) {
-            revert CannotRedeemMoreThanAllowedTreshold(amountToRedeem, circulatingSupply() * 500 / FEEDENOMINATOR);
-        }
         if (amountToRedeem > totalToRedeem) {
             return;
         }
@@ -1444,8 +1455,8 @@ contract ARJ is Ownable, IERC20Metadata, IERC20Errors, ICommonError {
         if (inSwap || isExemptFee[from] || isExemptFee[to]) {
             return _update(from, to, value);
         }
-        if (from != pair && isSwapEnabled && totalFeeCollected - totalFeeRedeemed >= minSwap && balanceOf(address(this)) >= minSwap) {
-            autoRedeem(minSwap);
+        if (from != pair && isSwapEnabled && totalFeeCollected - totalFeeRedeemed <= balanceOf(address(this))) {
+            autoRedeem(totalFeeCollected - totalFeeRedeemed);
         }
 
         uint256 newValue = value;
